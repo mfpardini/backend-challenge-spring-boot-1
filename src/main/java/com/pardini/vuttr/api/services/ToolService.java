@@ -49,7 +49,7 @@ public class ToolService {
 	private Tool getRegisterById(String id) {
 		return this.toolRepository
 			.findById(id)
-			.orElseThrow(() -> new ResourceNotFoundException("Tool does not exist"));
+			.orElseThrow(() -> new ResourceNotFoundException("Tool not found"));
 	}
 
 }
