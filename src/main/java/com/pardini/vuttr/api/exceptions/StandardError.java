@@ -2,8 +2,6 @@ package com.pardini.vuttr.api.exceptions;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 public class StandardError implements Serializable {
 
@@ -15,7 +13,6 @@ public class StandardError implements Serializable {
 	private String error;
 	private String message;
 	private String path;
-	private List<FieldErrorMessage> errors = new ArrayList<>();
 
 	public StandardError(OffsetDateTime datetime, Long unixTimestamp, Integer status, String error, String message,
 			String path) {
@@ -74,14 +71,6 @@ public class StandardError implements Serializable {
 
 	public void setPath(String path) {
 		this.path = path;
-	}
-
-	public List<FieldErrorMessage> getErrors() {
-		return errors;
-	}
-
-	public void setErrors(List<FieldErrorMessage> errors) {
-		this.errors = errors;
 	}
 
 }
