@@ -5,6 +5,8 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,6 +55,7 @@ public class ToolControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(result-> assertEquals(expected, result.getResponse().getContentAsString()));
 
+		verify(mockToolService, times(1)).getById(mockId);
 	}
 	
 	@Test
@@ -62,6 +65,8 @@ public class ToolControllerTest {
 		mockMvc.perform(get("/tools/{id}", "abc123"))
 			.andExpect(status().isNotFound())
 			.andExpect(result -> assertTrue(result.getResolvedException() instanceof ResourceNotFoundException));
+		
+		verify(mockToolService, times(1)).getById("abc123");
 	}
 	
 	@Test
@@ -80,6 +85,8 @@ public class ToolControllerTest {
 			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool2).getJson())))
 			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool3).getJson())))
 			;
+		
+		verify(mockToolService, times(1)).getAll();
 	}
 	
 	@Test
@@ -98,6 +105,8 @@ public class ToolControllerTest {
 			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool2).getJson())))
 			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool3).getJson())))
 			;
+		
+		verify(mockToolService, times(1)).getByTag("c");
 	}
 	
 	@Test
@@ -108,5 +117,7 @@ public class ToolControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(result -> assertEquals("[]", result.getResponse().getContentAsString()))
 			;
+		
+		verify(mockToolService, times(1)).getByTag("d");
 	}
 }
