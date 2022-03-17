@@ -1,5 +1,8 @@
 package com.pardini.vuttr.api.controllers;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
@@ -8,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +33,7 @@ public class ToolControllerTest {
 	private MockMvc mockMvc;
 
 	@MockBean
-	private ToolService toolService;
+	private ToolService mockToolService;
 
 	@Autowired
 	private JacksonTester<Tool> jsonTool;
@@ -43,7 +47,7 @@ public class ToolControllerTest {
 		
 		String expected = jsonTool.write(mockTool).getJson();
 		
-		when(toolService.getById(mockId)).thenReturn(mockTool);
+		when(mockToolService.getById(mockId)).thenReturn(mockTool);
 
 		mockMvc.perform(get("/tools/{id}", mockId))
 			.andExpect(status().isOk())
@@ -53,10 +57,56 @@ public class ToolControllerTest {
 	
 	@Test
 	public void shouldThrowResourceNotFoundException_whenToolDoesNotExist() throws Exception {
-		when(toolService.getById("abc123")).thenThrow(ResourceNotFoundException.class);
+		when(mockToolService.getById("abc123")).thenThrow(ResourceNotFoundException.class);
 		
 		mockMvc.perform(get("/tools/{id}", "abc123"))
 			.andExpect(status().isNotFound())
 			.andExpect(result -> assertTrue(result.getResolvedException() instanceof ResourceNotFoundException));
+	}
+	
+	@Test
+	public void shouldReturnAListOfAllTools_whenDoNotHaveQueryParams() throws Exception {
+		var tool1 = new Tool("a", "a", "a", "a", new ArrayList<>(Arrays.asList("a", "b")));
+		var tool2 = new Tool("b", "b", "b", "b", new ArrayList<>(Arrays.asList("b", "c")));
+		var tool3 = new Tool("c", "c", "c", "c", new ArrayList<>(Arrays.asList("c", "a")));
+		
+		List<Tool> toolsList = new ArrayList<>(Arrays.asList(tool1, tool2, tool3));
+		
+		when(mockToolService.getAll()).thenReturn(toolsList);
+		
+		mockMvc.perform(get("/tools"))
+			.andExpect(status().isOk())
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool1).getJson())))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool2).getJson())))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool3).getJson())))
+			;
+	}
+	
+	@Test
+	public void shouldReturnAListOfSpecificTools_whenFilterTag() throws Exception {
+		var tool1 = new Tool("a", "a", "a", "a", new ArrayList<>(Arrays.asList("a", "b")));
+		var tool2 = new Tool("b", "b", "b", "b", new ArrayList<>(Arrays.asList("b", "c")));
+		var tool3 = new Tool("c", "c", "c", "c", new ArrayList<>(Arrays.asList("c", "a")));
+		
+		List<Tool> toolsList = new ArrayList<>(Arrays.asList(tool2, tool3));
+		
+		when(mockToolService.getByTag("c")).thenReturn(toolsList);
+		
+		mockMvc.perform(get("/tools").param("tag", "c"))
+			.andExpect(status().isOk())
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), not(containsString(jsonTool.write(tool1).getJson()))))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool2).getJson())))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool3).getJson())))
+			;
+	}
+	
+	@Test
+	public void shouldReturnEmptyList_whenFilterTagNotExists() throws Exception {
+		when(mockToolService.getByTag("d")).thenReturn(new ArrayList<Tool>());
+		
+		mockMvc.perform(get("/tools").param("tag", "d"))
+			.andExpect(status().isOk())
+			.andExpect(result -> assertEquals("[]", result.getResponse().getContentAsString()))
+			;
 	}
 }
