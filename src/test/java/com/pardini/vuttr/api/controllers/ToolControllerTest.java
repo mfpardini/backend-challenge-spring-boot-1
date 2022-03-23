@@ -1,14 +1,15 @@
 package com.pardini.vuttr.api.controllers;
 
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.ArrayList;
@@ -19,12 +20,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.AutoConfigureJsonTesters;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.json.JacksonTester;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pardini.vuttr.api.exceptions.ResourceNotFoundException;
 import com.pardini.vuttr.api.services.ToolService;
+import com.pardini.vuttr.domain.dtos.ToolDto;
 import com.pardini.vuttr.domain.model.Tool;
 
 @AutoConfigureJsonTesters
@@ -36,9 +39,14 @@ public class ToolControllerTest {
 
 	@MockBean
 	private ToolService mockToolService;
-
-	@Autowired
-	private JacksonTester<Tool> jsonTool;
+	
+	private static String asJsonString(final Object obj) {
+	    try {
+	        return new ObjectMapper().writeValueAsString(obj);
+	    } catch (Exception e) {
+	        throw new RuntimeException(e);
+	    }
+	}
 
 	@Test
 	public void shouldReturnATool_whenGetById() throws Exception {
@@ -47,7 +55,7 @@ public class ToolControllerTest {
 		Tool mockTool = new Tool(mockId, "title", "link", "description",
 				new ArrayList<>(Arrays.asList("mock1", "mock2")));
 		
-		String expected = jsonTool.write(mockTool).getJson();
+		String expected = asJsonString(mockTool);
 		
 		when(mockToolService.getById(mockId)).thenReturn(mockTool);
 
@@ -59,7 +67,7 @@ public class ToolControllerTest {
 	}
 	
 	@Test
-	public void shouldThrowResourceNotFoundException_whenToolDoesNotExist() throws Exception {
+	public void shouldThrowResourceNotFoundException_whenSearchedToolDoesNotExist() throws Exception {
 		when(mockToolService.getById("abc123")).thenThrow(ResourceNotFoundException.class);
 		
 		mockMvc.perform(get("/tools/{id}", "abc123"))
@@ -81,9 +89,9 @@ public class ToolControllerTest {
 		
 		mockMvc.perform(get("/tools"))
 			.andExpect(status().isOk())
-			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool1).getJson())))
-			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool2).getJson())))
-			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool3).getJson())))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(tool1))))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(tool2))))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(tool3))))
 			;
 		
 		verify(mockToolService, times(1)).getAll();
@@ -101,9 +109,9 @@ public class ToolControllerTest {
 		
 		mockMvc.perform(get("/tools").param("tag", "c"))
 			.andExpect(status().isOk())
-			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), not(containsString(jsonTool.write(tool1).getJson()))))
-			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool2).getJson())))
-			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(jsonTool.write(tool3).getJson())))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), not(containsString(asJsonString(tool1)))))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(tool2))))
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(tool3))))
 			;
 		
 		verify(mockToolService, times(1)).getByTag("c");
@@ -119,5 +127,51 @@ public class ToolControllerTest {
 			;
 		
 		verify(mockToolService, times(1)).getByTag("d");
+	}
+	
+	@Test
+	public void shouldThrowResourceNotFoundException_whenUpdatedToolDoesNotExist() throws Exception {
+		var toolDtoMock = new ToolDto();
+		toolDtoMock.setTitle("title");
+		toolDtoMock.setLink("link");
+		toolDtoMock.setDescription("description more than 15");
+		toolDtoMock.setTags(new ArrayList<>(Arrays.asList("a1", "a2")));
+				
+		when(mockToolService.update("a", toolDtoMock)).thenThrow(ResourceNotFoundException.class);
+		
+		mockMvc.perform(put("/tools/{id}", "a")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(asJsonString(toolDtoMock))
+				.characterEncoding("utf-8")
+			)
+		.andExpect(status().isNotFound())
+		.andExpect(result -> assertTrue(result.getResolvedException() instanceof ResourceNotFoundException))
+		;
+		
+		verify(mockToolService, times(1)).update("a", toolDtoMock);
+	}
+	
+	@Test
+	public void shouldUpdateAndReturnUpdatedTool_whenPutRequest() throws Exception {
+		var toolDtoMock = new ToolDto();
+		toolDtoMock.setTitle("title");
+		toolDtoMock.setLink("link");
+		toolDtoMock.setDescription("description more than 15");
+		toolDtoMock.setTags(new ArrayList<>(Arrays.asList("a1", "a2")));
+		
+		var newToolMock = new Tool("a",	"title", "link", "description more than 15", new ArrayList<>(Arrays.asList("a1", "a2")));
+				
+		when(mockToolService.update("a", toolDtoMock)).thenReturn(newToolMock);
+		
+		mockMvc.perform(put("/tools/{id}", "a")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(asJsonString(toolDtoMock))
+				.characterEncoding("utf-8")
+			)
+		.andExpect(status().isOk())
+		.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(newToolMock))))
+		;
+		
+		verify(mockToolService, times(1)).update("a", toolDtoMock);
 	}
 }
