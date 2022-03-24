@@ -1,14 +1,19 @@
 package com.pardini.vuttr.api.controllers;
 
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -144,9 +149,9 @@ public class ToolControllerTest {
 				.content(asJsonString(toolDtoMock))
 				.characterEncoding("utf-8")
 			)
-		.andExpect(status().isNotFound())
-		.andExpect(result -> assertTrue(result.getResolvedException() instanceof ResourceNotFoundException))
-		;
+			.andExpect(status().isNotFound())
+			.andExpect(result -> assertTrue(result.getResolvedException() instanceof ResourceNotFoundException))
+			;
 		
 		verify(mockToolService, times(1)).update("a", toolDtoMock);
 	}
@@ -168,10 +173,61 @@ public class ToolControllerTest {
 				.content(asJsonString(toolDtoMock))
 				.characterEncoding("utf-8")
 			)
-		.andExpect(status().isOk())
-		.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(newToolMock))))
-		;
+			.andExpect(status().isOk())
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(newToolMock))))
+			;
 		
 		verify(mockToolService, times(1)).update("a", toolDtoMock);
 	}
+	
+	@Test
+	public void shouldCreateNewTool_whenPostRequest() throws Exception {
+		var toolDtoMock = new ToolDto();
+		toolDtoMock.setTitle("title");
+		toolDtoMock.setLink("link");
+		toolDtoMock.setDescription("description more than 15");
+		toolDtoMock.setTags(new ArrayList<>(Arrays.asList("a1", "a2")));
+		
+		var newToolMock = new Tool("abc",	"title", "link", "description more than 15", new ArrayList<>(Arrays.asList("a1", "a2")));
+				
+		when(mockToolService.save(toolDtoMock)).thenReturn(newToolMock);
+		
+		mockMvc.perform(post("/tools")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(asJsonString(toolDtoMock))
+				.characterEncoding("utf-8")
+			)
+			.andExpect(status().isCreated())
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), containsString(asJsonString(newToolMock))))
+			;
+		
+		verify(mockToolService, times(1)).save(toolDtoMock);
+	}
+	
+	// TODO: find a way to test when some attribute passed by post or put is not valid
+	
+	@Test
+	public void shouldThrowResourceNotFoundException_whenDeletedToolDoesNotExist() throws Exception {
+		doThrow(ResourceNotFoundException.class).when(mockToolService).delete("a");
+		
+		mockMvc.perform(delete("/tools/{id}", "a"))
+			.andExpect(status().isNotFound())
+			.andExpect(result -> assertTrue(result.getResolvedException() instanceof ResourceNotFoundException))
+			;
+		
+		verify(mockToolService, times(1)).delete("a");
+	}
+	
+	@Test
+	public void shouldReturnVoidWithStatusOk_whenDeleteIsSuccessful() throws Exception {
+		doNothing().when(mockToolService).delete("a");
+		
+		mockMvc.perform(delete("/tools/{id}", "a"))
+			.andExpect(status().isOk())
+			.andExpect(result -> assertThat(result.getResponse().getContentAsString(), is("")))
+			;
+		
+		verify(mockToolService, times(1)).delete("a");
+	}
+	
 }
