@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +41,7 @@ public class ToolServiceTest {
 	private Tool tool2;
 	private Tool tool3;
 	private List<Tool> toolList;
+	private ToolDto toolDto;
 
 	@BeforeEach
 	public void setUp() {
@@ -50,12 +52,19 @@ public class ToolServiceTest {
 		toolList = new ArrayList<Tool>();
 		toolList.add(tool1);
 		toolList.add(tool2);
+		
+		toolDto = new ToolDto();
+		toolDto.setDescription("description4");
+		toolDto.setLink("link4");
+		toolDto.setTitle("title4");
+		toolDto.setTags(new ArrayList<String>(Arrays.asList("tag4", "tag1")));
 	}
 
 	@AfterEach
 	public void tearDown() {
 		tool1 = tool2 = tool3 = null;
 		toolList = null;
+		toolDto = null;
 	}
 
 	/**
@@ -115,11 +124,7 @@ public class ToolServiceTest {
 
 	@Test
 	public void whenUpdate_shouldReturnUpdatedTool() {
-		ToolDto toolDto = new ToolDto();
-		toolDto.setDescription("description4");
-		toolDto.setLink("link4");
-		toolDto.setTitle("title4");
-		toolDto.setTags(new ArrayList<String>(Arrays.asList("tag4", "tag1")));
+		
 
 		when(mockRepository.findById("id3")).thenReturn(Optional.of(tool3));
 
@@ -147,6 +152,44 @@ public class ToolServiceTest {
 	@Test
 	public void whenUpdateNonExistingTool_shouldThrowResourceNotFoundException() {
 		testWhenShouldThrowResourceNotFoundException();
+	}
+	
+	@Test
+	public void whenSave_shouldReturnTheNewToolObject() {
+		
+		Tool expected = tool1;
+		
+		when(mockRepository.save(Mockito.any(Tool.class))).thenReturn(expected);
+		
+		var returned = toolService.save(toolDto);
+		
+		// Tool equals compare only by id
+		assertThat(returned).isEqualTo(expected);
+
+		assertAll("Should have the same properties", 
+			() -> assertEquals(expected.getTitle(), returned.getTitle()),
+			() -> assertEquals(expected.getLink(), returned.getLink()),
+			() -> assertEquals(expected.getDescription(), returned.getDescription()),
+			() -> assertEquals(expected.getTags(), returned.getTags())
+		);
+
+		verify(mockRepository, times(1)).save(Mockito.any(Tool.class));
+	}
+	
+	@Test
+	public void whenDeleteNonExistingTool_shouldThrowResourceNotFoundException() {
+		testWhenShouldThrowResourceNotFoundException();
+	}
+	
+	@Test
+	public void whenDelete_shouldCallDeleteRepoMethod() {
+		when(mockRepository.findById("id1")).thenReturn(Optional.of(tool1));
+		
+		doNothing().when(mockRepository).delete(tool1);
+		
+		toolService.delete("id1");
+		
+		verify(mockRepository, times(1)).delete(tool1);
 	}
 
 }
